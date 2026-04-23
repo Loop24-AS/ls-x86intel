@@ -109,7 +109,7 @@ start_countdown() {
 # --- Main sequence ---
 
 # Hide cursor using unclutter (X11 approach, replaces udevmon/hideaway)
-unclutter -idle 0 -root &
+unclutter -idle 5 -root &
 
 # Wait for NTP sync
 check_internet_and_time_sync
