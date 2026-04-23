@@ -2,7 +2,7 @@
 
 LOG_FILE="/home/loopsign/loopsign.log"
 
-# --- Logging Function ---
+# --- Logging ---
 log() {
     local TIMESTAMP
     TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
@@ -11,74 +11,65 @@ log() {
 
 log "Script started."
 
-# --- Detect Raspberry Pi Model ---
-MODEL=$(tr -d '\0' < /proc/device-tree/model)
-if echo "$MODEL" | grep -q "Pi 5"; then
-  HW="Rpi5"
-elif echo "$MODEL" | grep -q "Pi 4"; then
-  HW="Rpi4"
-else
-  HW="UnknownPi"
+# --- Platform tag (replaces Pi model detection) ---
+HW="x86"
+
+# --- Get Chromium version ---
+CHROMIUM_VERSION=$(chromium-browser --version 2>/dev/null | awk '{print $2}')
+if [ -z "$CHROMIUM_VERSION" ]; then
+    CHROMIUM_VERSION=$(chromium --version 2>/dev/null | awk '{print $2}')
 fi
 
-# --- Get Chromium Version ---
-CHROMIUM_VERSION=$(chromium --version | awk '{print $2}')
+# --- Extract display info via xrandr (replaces wlr-randr) ---
+XRANDR_OUTPUT=$(xrandr)
 
-# --- Extract Display Information ---
-WLR_OUTPUT=$(wlr-randr)
+# Find the connected, active output (e.g. HDMI-1, DP-1, eDP-1)
+DISPLAY_NAME=$(echo "$XRANDR_OUTPUT" | awk '/ connected/ {print $1; exit}')
 
-# Get display name like "Ancor Communications Inc VS278 G5LMQS033589 (HDMI-A-1)"
-DISPLAY_LINE=$(echo "$WLR_OUTPUT" | grep -oP '^HDMI-A-1 "\K[^"]+')
-ACTUAL_DISPLAY_NAME=$(echo "$DISPLAY_LINE" | sed -E 's/ \([^()]+\)$//')
+# Get resolution and refresh rate of the current mode (marked with *)
+RES_LINE=$(echo "$XRANDR_OUTPUT" | grep '\*' | head -n1)
+ACTIVE_RES=$(echo "$RES_LINE" | awk '{print $1}')
+ACTIVE_HZ=$(echo "$RES_LINE" | grep -oP '\d+\.\d+\*' | grep -oP '\d+\.\d+')
+ACTIVE_HZ=$(printf "%.0f" "${ACTIVE_HZ:-0}")
 
-# Get physical size (e.g. 600x340)
-PHYSICAL_SIZE=$(echo "$WLR_OUTPUT" | grep -A1 "$ACTUAL_DISPLAY_NAME" | awk -F'[:)]' '/Physical size/ {gsub(" mm", "", $2); print $2; exit}' | xargs)
-
-# Try to extract resolution/refresh rate from (preferred, current) first
-RES_LINE=$(echo "$WLR_OUTPUT" | grep '(preferred, current)' | head -n1)
-
-# If not found, fall back to just (current)
-if [ -z "$RES_LINE" ]; then
-  RES_LINE=$(echo "$WLR_OUTPUT" | grep '(current)' | head -n1)
-fi
-
-# Extract resolution and refresh rate from the chosen line
-read ACTIVE_RES ACTIVE_HZ <<< $(echo "$RES_LINE" | awk '{print $1, $3}' | sed 's/[^0-9x. ]//g')
-
-# Truncate refresh rate to integer
-ACTIVE_HZ=$(printf "%.0f" "$ACTIVE_HZ")
+# Physical size in mm (from xrandr output line for the connected display)
+PHYSICAL_SIZE=$(echo "$XRANDR_OUTPUT" | grep -A1 "^${DISPLAY_NAME} connected" | grep -oP '\d+mm x \d+mm' | head -n1 | sed 's/mm x /x/' | sed 's/mm//')
 
 # Fallbacks
-ACTUAL_DISPLAY_NAME=${ACTUAL_DISPLAY_NAME:-UnknownDisplay}
+DISPLAY_NAME=${DISPLAY_NAME:-UnknownDisplay}
 PHYSICAL_SIZE=${PHYSICAL_SIZE:-0x0}
 ACTIVE_RES=${ACTIVE_RES:-0x0}
 ACTIVE_HZ=${ACTIVE_HZ:-0}
 
-# --- Construct Custom UA Tag ---
-TAG="LoopSignPlayer/${HW}-2025.5:${ACTUAL_DISPLAY_NAME// /_}_${PHYSICAL_SIZE}_${ACTIVE_RES}@${ACTIVE_HZ}"
+log "Display: $DISPLAY_NAME | Size: ${PHYSICAL_SIZE}mm | Res: $ACTIVE_RES @ ${ACTIVE_HZ}Hz"
 
-# --- Compose Final UA ---
+# --- Construct custom UA tag ---
+TAG="LoopSignPlayer/${HW}-2025.5:${DISPLAY_NAME// /_}_${PHYSICAL_SIZE}_${ACTIVE_RES}@${ACTIVE_HZ}"
+
+# --- Compose final UA ---
 DEFAULT_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROMIUM_VERSION} Safari/537.36"
 FINAL_UA="$DEFAULT_UA $TAG"
 
 log "Final UA: $FINAL_UA"
 
-# --- Cleanup Chromium Singleton Flags ---
-rm -f /home/loopsign/.config/chromium/Singleton*
+# --- Clean up Chromium singleton lock ---
+rm -f /home/loopsign/snap/chromium/current/.config/chromium/Singleton*
 
-# --- Mark session as clean ---
-sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' ~/.config/chromium/Default/Preferences
-sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' ~/.config/chromium/Default/Preferences
+# --- Mark session as clean to suppress crash restore dialog ---
+sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' /home/loopsign/snap/chromium/current/.config/chromium/Default/Preferences 2>/dev/null
+sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' /home/loopsign/snap/chromium/current/.config/chromium/Default/Preferences 2>/dev/null
 
-# --- Load HASH from file ---
+# --- Load hash ---
 HASH=$(cat /home/loopsign/Desktop/.hash.txt)
 
-# --- Launch Chromium in Kiosk Mode ---
+# --- Launch Chromium in kiosk mode ---
 log "Launching Chromium..."
 chromium-browser \
-  --disable-media-stream \
-  --kiosk \
-  --disable-desktop-notifications \
-  --no-first-run \
-  --user-agent="$FINAL_UA" \
-  "https://play.loopsign.eu/hash/$HASH"
+    --disable-media-stream \
+    --kiosk \
+    --disable-desktop-notifications \
+    --no-first-run \
+    --disable-infobars \
+    --disable-session-crashed-bubble \
+    --user-agent="$FINAL_UA" \
+    "https://play.loopsign.eu/hash/$HASH"
