@@ -28,7 +28,7 @@ check_internet_and_time_sync() {
 
 # Function to update the repository
 update_repository() {
-    local REPO_DIR="/home/loopsign/ls-x86ubuntu"
+    local REPO_DIR="/home/loopsign/ls-x86xubuntu"
     local CONFIG_FILE="/home/loopsign/config"
     local BRANCH="prod"
     local GITHUB_REPO_URL="https://github.com/Loop23-AS/ls-x86xubuntu.git"  # <-- update this
