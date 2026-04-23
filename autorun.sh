@@ -31,7 +31,7 @@ update_repository() {
     local REPO_DIR="/home/loopsign/ls-x86xubuntu"
     local CONFIG_FILE="/home/loopsign/config"
     local BRANCH="prod"
-    local GITHUB_REPO_URL="https://github.com/Loop23-AS/ls-x86xubuntu.git"
+    local GITHUB_REPO_URL="https://github.com/Loop24-AS/ls-x86xubuntu.git"
 
     if [ -f "$CONFIG_FILE" ]; then
         BRANCH=$(cat "$CONFIG_FILE" | tr -d '[:space:]')
