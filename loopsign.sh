@@ -14,6 +14,10 @@ log "Script started."
 # --- Platform tag (replaces Pi model detection) ---
 HW="x86"
 
+# --- Intel VA-API hardware acceleration ---
+export LIBVA_DRIVER_NAME=iHD
+export LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
+
 # --- Get Chromium version ---
 CHROMIUM_VERSION=$(chromium-browser --version 2>/dev/null | awk '{print $2}')
 if [ -z "$CHROMIUM_VERSION" ]; then
@@ -71,5 +75,9 @@ chromium-browser \
     --no-first-run \
     --disable-infobars \
     --disable-session-crashed-bubble \
+    --enable-features=VaapiVideoDecodeLinuxGL,VaapiVideoEncoder \
+    --use-gl=angle \
+    --enable-gpu-rasterization \
+    --ignore-gpu-blocklist \
     --user-agent="$FINAL_UA" \
     "https://play.loopsign.eu/hash/$HASH"
