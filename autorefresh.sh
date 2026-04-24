@@ -26,7 +26,7 @@ check_chromium() {
 # --- Refresh Chromium via xdotool (replaces wtype for X11) ---
 refresh_chromium() {
     local WID
-    WID=$(xdotool search --onlyvisible --class chromium 2>/dev/null | head -n1)
+    WID=$(xdotool search --class chromium 2>/dev/null | head -n1)
     if [ -n "$WID" ]; then
         xdotool key --window "$WID" ctrl+r
         log "Chromium refreshed via xdotool."
