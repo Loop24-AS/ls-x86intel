@@ -19,7 +19,7 @@ log "Script started."
 
 # --- Chromium check ---
 check_chromium() {
-    pgrep -x chromium-browser > /dev/null || pgrep -x chromium > /dev/null
+    pgrep -f chromium > /dev/null
     return $?
 }
 
