@@ -21,7 +21,7 @@ if [ -z "$MAC" ]; then
 fi
 
 # Generate a 7-character alphanumeric hash from the MAC
-HASH=$(echo "$MAC" | sha256sum | tr -dc 'a-z0-9' | head -c 7)
+HASH=$(echo "$MAC" | sha256sum | tr -dc 'a-z0-9' | head -c 7 | tr '[:lower:]' '[:upper:]')
 
 echo "Interface: $IFACE | MAC: $MAC | Hash: $HASH"
 
