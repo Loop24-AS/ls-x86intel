@@ -134,6 +134,23 @@ echo "Installing sudo crontab..."
 
 "$REPO_DIR/define-sudo-crontab.sh" || true
 
+echo "Configuring passwordless sudo for loopsign..."
+
+SUDOERS_FILE="/etc/sudoers.d/loopsign"
+TMP_FILE="$(mktemp)"
+
+echo "loopsign ALL=(ALL) NOPASSWD:ALL" > "$TMP_FILE"
+
+if sudo visudo -cf "$TMP_FILE"; then
+  sudo mv "$TMP_FILE" "$SUDOERS_FILE"
+  sudo chmod 0440 "$SUDOERS_FILE"
+  echo "Passwordless sudo configured."
+else
+  echo "Error: sudoers validation failed."
+  rm -f "$TMP_FILE"
+  exit 1
+fi
+
 echo
 echo "Installation complete."
 echo
