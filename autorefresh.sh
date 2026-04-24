@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export DISPLAY=:0.0
+
 LOG_FILE="/home/loopsign/autorefresh.log"
 
 CHECK_INTERVAL_NORMAL=60
