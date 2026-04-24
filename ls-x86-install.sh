@@ -17,6 +17,9 @@ if [[ "$(id -un)" != "$LOOPSIGN_USER" ]]; then
   exit 1
 fi
 
+# Xfce HiDPI / 2x UI scaling
+xfconf-query -c xsettings -p /Gdk/WindowScalingFactor -n -t int -s 2
+
 sudo -v
 
 echo "Installing required packages..."
