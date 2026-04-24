@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define paths
-SOURCE_FILE="/home/loopsign/x86xubuntu/sudo-crontab.txt"
+SOURCE_FILE="/home/loopsign/ls-x86xubuntu/sudo-crontab.txt"
 CURRENT_FILE="/home/loopsign/current-sudo-crontab.txt"
 MANUAL_OVERRIDE="/home/loopsign/manual-crontab.txt"
 
