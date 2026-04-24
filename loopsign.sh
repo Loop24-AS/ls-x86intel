@@ -1,83 +1,64 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-LOG_FILE="/home/loopsign/loopsign.log"
+export XAUTHORITY="${XAUTHORITY:-/home/loopsign/.Xauthority}"
+export MOZ_DISABLE_RDD_SANDBOX=1
+export LIBVA_DRIVER_NAME="${LIBVA_DRIVER_NAME:-iHD}"
 
-# --- Logging ---
+BASE_DIR="/home/loopsign"
+REPO_DIR="$BASE_DIR/ls-x86xubuntu"
+LOG_FILE="$BASE_DIR/loopsign.log"
+HASH_FILE="$BASE_DIR/Desktop/.hash.txt"
+
+FIREFOX_PROFILE="loopsign"
+
 log() {
-    local TIMESTAMP
-    TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "$TIMESTAMP $1" | tee -a "$LOG_FILE"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') $1" | tee -a "$LOG_FILE"
 }
 
-log "Script started."
+log "loopsign.sh started."
 
-# --- Platform tag (replaces Pi model detection) ---
-HW="x86"
+xset s off 2>/dev/null || true
+xset -dpms 2>/dev/null || true
+xset s noblank 2>/dev/null || true
 
-# --- Intel VA-API hardware acceleration ---
-export LIBVA_DRIVER_NAME=iHD
-export LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
-
-# --- Get Chromium version ---
-CHROMIUM_VERSION=$(chromium-browser --version 2>/dev/null | awk '{print $2}')
-if [ -z "$CHROMIUM_VERSION" ]; then
-    CHROMIUM_VERSION=$(chromium --version 2>/dev/null | awk '{print $2}')
+if [[ ! -f "$HASH_FILE" ]]; then
+  log "Hash file missing. Running hashgenerator.sh."
+  "$REPO_DIR/hashgenerator.sh"
 fi
 
-# --- Extract display info via xrandr (replaces wlr-randr) ---
-XRANDR_OUTPUT=$(xrandr)
+HASH="$(cat "$HASH_FILE" | tr -d '[:space:]')"
 
-# Find the connected, active output (e.g. HDMI-1, DP-1, eDP-1)
-DISPLAY_NAME=$(echo "$XRANDR_OUTPUT" | awk '/ connected/ {print $1; exit}')
+if [[ -z "$HASH" ]]; then
+  log "Error: hash is empty."
+  exit 1
+fi
 
-# Get resolution and refresh rate of the current mode (marked with *)
-RES_LINE=$(echo "$XRANDR_OUTPUT" | grep '\*' | head -n1)
-ACTIVE_RES=$(echo "$RES_LINE" | awk '{print $1}')
-ACTIVE_HZ=$(echo "$RES_LINE" | grep -oP '\d+\.\d+\*' | grep -oP '\d+\.\d+')
-ACTIVE_HZ=$(printf "%.0f" "${ACTIVE_HZ:-0}")
+URL="https://play.loopsign.eu/hash/$HASH"
 
-# Physical size in mm (from xrandr output line for the connected display)
-PHYSICAL_SIZE=$(echo "$XRANDR_OUTPUT" | grep -A1 "^${DISPLAY_NAME} connected" | grep -oP '\d+mm x \d+mm' | head -n1 | sed 's/mm x /x/' | sed 's/mm//')
+XRANDR_OUTPUT="$(xrandr 2>/dev/null || true)"
+DISPLAY_OUTPUT="$(echo "$XRANDR_OUTPUT" | awk '/ connected/ {print $1; exit}')"
+ACTIVE_RES="$(echo "$XRANDR_OUTPUT" | awk '/\*/ {print $1; exit}')"
+ACTIVE_HZ="$(echo "$XRANDR_OUTPUT" | awk '/\*/ {for (i=1;i<=NF;i++) if ($i ~ /\*/) print $i}' | sed 's/*//' | head -n1)"
 
-# Fallbacks
-DISPLAY_NAME=${DISPLAY_NAME:-UnknownDisplay}
-PHYSICAL_SIZE=${PHYSICAL_SIZE:-0x0}
-ACTIVE_RES=${ACTIVE_RES:-0x0}
-ACTIVE_HZ=${ACTIVE_HZ:-0}
+DISPLAY_OUTPUT="${DISPLAY_OUTPUT:-UnknownDisplay}"
+ACTIVE_RES="${ACTIVE_RES:-UnknownResolution}"
+ACTIVE_HZ="${ACTIVE_HZ:-UnknownHz}"
 
-log "Display: $DISPLAY_NAME | Size: ${PHYSICAL_SIZE}mm | Res: $ACTIVE_RES @ ${ACTIVE_HZ}Hz"
+FIREFOX_VERSION="$(firefox --version 2>/dev/null || echo unknown)"
 
-# --- Construct custom UA tag ---
-TAG="LoopSignPlayer/${HW}-2025.5:${DISPLAY_NAME// /_}_${PHYSICAL_SIZE}_${ACTIVE_RES}@${ACTIVE_HZ}"
+log "Display output: $DISPLAY_OUTPUT"
+log "Active resolution: $ACTIVE_RES"
+log "Active refresh rate: $ACTIVE_HZ"
+log "Firefox version: $FIREFOX_VERSION"
+log "URL: $URL"
 
-# --- Compose final UA ---
-DEFAULT_UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROMIUM_VERSION} Safari/537.36"
-FINAL_UA="$DEFAULT_UA $TAG"
+pkill firefox >/dev/null 2>&1 || true
+sleep 2
 
-log "Final UA: $FINAL_UA"
+log "Starting Firefox kiosk."
 
-# --- Clean up Chromium singleton lock ---
-rm -f /home/loopsign/snap/chromium/current/.config/chromium/Singleton*
-
-# --- Mark session as clean to suppress crash restore dialog ---
-sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' /home/loopsign/snap/chromium/current/.config/chromium/Default/Preferences 2>/dev/null
-sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' /home/loopsign/snap/chromium/current/.config/chromium/Default/Preferences 2>/dev/null
-
-# --- Load hash ---
-HASH=$(cat /home/loopsign/Desktop/.hash.txt)
-
-# --- Launch Chromium in kiosk mode ---
-log "Launching Chromium..."
-chromium-browser \
-    --disable-media-stream \
-    --kiosk \
-    --disable-desktop-notifications \
-    --no-first-run \
-    --disable-infobars \
-    --disable-session-crashed-bubble \
-    --enable-features=VaapiVideoDecodeLinuxGL,VaapiVideoEncoder \
-    --use-gl=angle \
-    --enable-gpu-rasterization \
-    --ignore-gpu-blocklist \
-    --user-agent="$FINAL_UA" \
-    "https://play.loopsign.eu/hash/$HASH"
+exec firefox \
+  -P "$FIREFOX_PROFILE" \
+  --kiosk \
+  --new-window "$URL"
