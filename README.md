@@ -1,170 +1,240 @@
-# ls-rpi5labwc
-## Shell scripts and setup for using Raspberry Pi 5 as LoopSign player
-
-The starting point of the setup is a Raspberry Pi 5 running on Raspberry Pi OS Debian 12 (Bookworm) with desktop, using Labwc Wayland compositor. Release date: May 13 2025. Download [here](https://downloads.raspberrypi.com/raspios_arm64/images/raspios_arm64-2025-05-13/2025-05-13-raspios-bookworm-arm64.img.xz).
+# LoopSign x86 Intel Player
 
 ![LoopSign logo](LoopSign-logo.png)
 
-## Concept
-The purpose of the setup is to make the Raspberry Pi work as an unattended LoopSign player. Its main job is to launch the user's LoopSign screen, a static URL, in a fullscreen Chromium window. A set of bash scripts are part of this setup to make the Pi behave as intended and stably over time:
-- `autorun.sh` will run at boot, as defined in `~/.config/labwc/autostart`. The script performs the following tasks in order:
-  - Restarts udevmon to force-hide the cursor (utilizing separate repository [hideaway.git](https://github.com/Loop24-AS/hideaway)).
-  - Waits for the system to get a working internet connection by checking if the player's date and time have synced with NTP.
-  - Pulls this repository for changes and implements any updates. If there are updates to `autorun.sh`, the script restarts using the new version of itself.
-  - Starts `autorefresh.sh` which will periodically (originally every three hours) do a refresh of Chromium if it's running.
-  - Runs `generatehash.sh` to generate a unique seven-character code. The code is based on the Pi's ethernet MAC address, and it will always stay static for every specific Raspberry Pi if the script is re-run.
-  - Runs `loopsign.sh` to launch Chromium in fullscreen with the LoopSign URL. The hash code from the previous step is a unique part of the URL, making it easy for the user to pair the player to their corresponding LoopSign screen without needing to connect to the player and control its settings.
-- It usually takes less than a minute from the desktop environment is loaded until Chromium is launched.
-- Throughout the boot/startup process, the user is kept somewhat informed via different Zenity dialogs.
+This repository contains the runtime scripts and provisioning utilities for the LoopSign x86 Intel signage player.
 
-## Setup instructions
+The setup is designed for:
 
-The Raspberry Pi OS image is burnt on a high speed 16 GB MicroSD card. Username: loopsign || Password: loop24
+- Debian + Xfce
+- Intel integrated graphics
+- Firefox ESR kiosk mode
+- unattended operation
+- pre-provisioned appliance-style deployments
 
-### Clone the ls-rpi5 repository
-
-```
-cd ~
-git clone https://github.com/Loop24-AS/ls-rpi5labwc.git
-```
-Copy `autorun.sh` to `/home/loopsign/` and make it executable.
-```
-cp /home/loopsign/ls-rpi5labwc/autorun.sh /home/loopsign/autorun.sh
-chmod +x /home/loopsign/autorun.sh
-```
-
-### Clone the hideaway repository and activate the plugin to hide the cursor
-Make `hidecursor.sh`executable and run it.
-```
-chmod +x /home/loopsign/ls-rpi5labwc/hidecursor.sh
-/home/loopsign/ls-rpi5labwc/hidecursor.sh
-```
-
-### Set autorun.sh to run at boot
-Create `~/.config/labwc/autostart` and add command to run ~/autorun.sh at boot.
-```
-nano ~/.config/labwc/autostart
-```
-Add the following line.
-```
-/home/loopsign/autorun.sh &
-```
-
-### Install neccessary packages
-```
-sudo apt install fonts-noto-color-emoji wtype -y
-```
-
-### Uninstall uneccessary packages
-```
-sudo apt remove geany -y && sudo apt autoremove -y
-```
-### Configure and set LoopSign Plymouth theme to enable LoopSign splash at boot
-```
-chmod +x ~/ls-rpi5labwc/loopsignsplash.sh
-~/ls-rpi5labwc/loopsignsplash.sh
-```
-
-## Changes set in the GUI
-### Raspberry Pi Configuration
-Right-click ***Raspberry Configuration*** in the Raspberry Pi Menu and click ***Add to Desktop***. Right-click ***Screen Configuration*** in the Raspberry Pi Menu and click ***Add to Desktop***.
-
-Double-click ***Raspberry Pi Configuration*** on the desktop. In the ***Display*** pane, make sure that ***Screen Blanking*** is disabled. In the ***Localisation*** pane, click ***Set Timezone*** and choose ***Area: Europe*** and ***Location: Oslo***; click ***Set Keyboard*** and choose ***Model: Logitech***, ***Layout: Norwegian*** and ***Variant: Norwegian***; click ***Set WLAN Country*** and choose ***NO Norway***.
-
-Right-click the taskbar and choose ***Notifications***. Disable ***Show notifications***.
-
-Remove the ***Updater*** icon from the taskbar.
-
-### Chromium settings
-Open Chromium and open URL `chrome://settings/cookies`. Enable ***Allow third-party cookies***. Open URL `chrome://settings/content/sound`. Add `https://play.loopsign.eu` and `https://edit.loopsign.eu` under ***Allowed to play sound***. Open `chrome://settings/languages`. Disable ***Spell check*** and ***Google Translate***. Open `chrome://settings/defaultBrowser` and click ***Make default***.
-
-### Desktop
-Right-click the desktop and open ***Desktop preferences***. Set `/home/loopsign/ls-rpi5/Linux background.png` as desktop background picture. Disable ***Wastebasket***. Open the ***Taskbar*** pane and set ***Size: Medium (24x24)***, ***Position: Bottom***, ***Colour: Black*** and ***Text Colour: White***.
+The system is intended to be installed once, imaged, and then preloaded onto x86 devices before shipping.
 
 ---
 
-## Set up automatic root partition expansion after first boot
-### Create the autoexpand shell script
+## Architecture
 
-Create and edit /root/autoexpand.sh:
-```
-sudo nano /root/autoexpand.sh
-```
+The player startup flow is intentionally simple:
 
-Paste the following, then save and exit:
-```
-#!/bin/bash
-set -e
-
-# Expand root partition using official raspi-config logic
-raspi-config --expand-rootfs
-
-# Disable this service for future boots and remove itself
-systemctl disable autoexpand.service
-rm -f /etc/systemd/system/autoexpand.service
-systemctl daemon-reload
-rm -f "$0"
-
-# Reboot to complete expansion (raspi-config handles actual resize2fs on next boot)
-reboot
+```text
+BIOS
+→ Plymouth splash
+→ LightDM
+→ Xfce session
+→ autorun.sh
+→ loopsign.sh
+→ Firefox ESR kiosk
 ```
 
-Make the script executable:
-```
-sudo chmod +x /root/autoexpand.sh
+The player automatically:
+
+- generates a unique device hash
+- launches Firefox in kiosk mode
+- refreshes the browser when internet connectivity returns
+- performs automatic repository updates from GitHub
+- supports unattended daily reboot through cron
+
+---
+
+## Repository
+
+```text
+https://github.com/Loop24-AS/ls-x86intel
 ```
 
-### Create the systemd service file
+Default branch:
 
-Create and edit /etc/systemd/system/autoexpand.service:
-```
-sudo nano /etc/systemd/system/autoexpand.service
-```
-
-Paste the following, then save and exit:
-```
-[Unit]
-Description=Auto-expand root partition on first boot (via raspi-config)
-After=multi-user.target
-
-[Service]
-Type=oneshot
-ExecStart=/root/autoexpand.sh
-
-[Install]
-WantedBy=multi-user.target
+```text
+prod
 ```
 
-### Enable the systemd service
+---
 
-```
-sudo systemctl enable autoexpand.service
+## Runtime Scripts
+
+### autorun.sh
+
+Main startup script launched automatically after login.
+
+Responsibilities:
+
+- wait for time synchronization
+- update repository from GitHub
+- self-update `autorun.sh` if changed
+- install sudo cron definition
+- generate device hash
+- launch watchdog
+- launch LoopSign kiosk
+
+---
+
+### loopsign.sh
+
+Launches Firefox ESR in kiosk mode using the generated device hash.
+
+Example playback URL:
+
+```text
+https://play.loopsign.eu/hash/ABC1234
 ```
 
-### Clear machine-id to ensure first-boot script/services run
+---
 
-```
-sudo rm -f /etc/machine-id
-sudo touch /etc/machine-id
+### autorefresh.sh
+
+Connectivity watchdog.
+
+Responsibilities:
+
+- detect internet loss
+- show offline warning after grace period
+- automatically refresh Firefox using `Ctrl+R` when connectivity returns
+
+---
+
+### hashgenerator.sh
+
+Generates a stable device identifier.
+
+Priority order:
+
+1. Ethernet MAC address
+2. `/etc/machine-id`
+3. DMI product UUID
+4. DMI product serial
+5. DMI board serial
+6. Disk serial
+
+The selected value is hashed using SHA-256 and shortened before being written to:
+
+```text
+/home/loopsign/Desktop/.hash.txt
 ```
 
+---
 
-### Clear command history from terminal
-```
-history -c
-> ~/.bash_history
-```
-Close terminal.
+### define-sudo-crontab.sh
 
-### Export image and shrink it
-Insert USB memory stick and export image.
-```
-sudo dd if=/dev/mmcblk0 of=/media/loopsign/[name-of-memory-stick]/ls_image_2025_5_pi5.img bs=1M status=progress
-```
-Run pishrink.sh on the exported image to shrink and compress it.
-```
-sudo /home/loopsign/ls-rpi5labwc/pishrink.sh -s -z /media/loopsign/[name-of-memory-stick]/ls_image_2025_5_pi5.img
-```
-Eject the memory stick.
+Installs the root cron configuration from:
 
-The image is now ready to be burnt onto an MicroSD card or USB memory stick to be used on a different Raspberry Pi 5.
+```text
+sudo-crontab.txt
+```
+
+Currently used for scheduled daily reboot.
+
+---
+
+## Provisioning Scripts
+
+These scripts are intended to run once while preparing the image.
+
+### loopsignsplash.sh
+
+Installs and activates the custom Plymouth boot splash.
+
+The script:
+
+- installs the Plymouth theme
+- copies splash assets
+- sets the default Plymouth theme
+- regenerates initramfs
+
+Run manually:
+
+```bash
+sudo ./loopsignsplash.sh
+```
+
+---
+
+## Dependencies
+
+Install required packages:
+
+```bash
+sudo apt install \
+    firefox-esr \
+    git \
+    curl \
+    zenity \
+    xdotool \
+    unclutter \
+    plymouth \
+    plymouth-themes
+```
+
+---
+
+## Automatic Startup
+
+`loopsign-autorun.desktop` launches:
+
+```text
+/home/loopsign/autorun.sh
+```
+
+during Xfce session startup.
+
+---
+
+## Firefox
+
+Firefox ESR is used in kiosk mode.
+
+Current launch mode:
+
+```bash
+firefox-esr --kiosk --new-window URL
+```
+
+Firefox policies may be configured through:
+
+```text
+/usr/lib/firefox-esr/distribution/policies.json
+```
+
+---
+
+## Display / Power Management
+
+The player assumes:
+
+- X11
+- LightDM
+- Xfce
+
+Xfce power manager is intentionally removed.
+
+Screen blanking and DPMS should instead be handled through dedicated system configuration.
+
+---
+
+## Logging
+
+Logs:
+
+```text
+/tmp/autorun.log
+/tmp/loopsign.log
+/tmp/hashgenerator.log
+/home/loopsign/autorefresh.log
+```
+
+---
+
+## Image Philosophy
+
+This project intentionally favors:
+
+- deterministic startup
+- appliance-style behavior
+- minimal abstraction
+- reproducible imaging
+- unattended reliability
+
+The player is designed to behave more like a dedicated embedded appliance than a traditional desktop Linux system.
