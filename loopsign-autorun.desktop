@@ -1,8 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=LoopSign Autorun
-Comment=Starts autorun.sh on login
 Exec=/home/loopsign/autorun.sh
+StartupNotify=false
 Terminal=false
-Hidden=false
 X-GNOME-Autostart-enabled=true
