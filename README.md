@@ -14,8 +14,6 @@ The setup is designed for:
 
 The system is intended to be installed once, imaged, and then preloaded onto x86 devices before shipping.
 
----
-
 ## Architecture
 
 The player startup flow is intentionally simple:
