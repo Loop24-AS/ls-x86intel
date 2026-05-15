@@ -1,64 +1,81 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
 
+exec > /tmp/loopsign.log 2>&1
+echo "loopsign.sh started at $(date)"
+
+REPO_DIR="/home/loopsign/ls-x86intel"
+HASH_FILE="/home/loopsign/Desktop/.hash.txt"
+DEFAULT_HASH="unknown"
+PLAY_BASE_URL="https://play.loopsign.eu/hash"
+
+export DISPLAY="${DISPLAY:-:0}"
 export XAUTHORITY="${XAUTHORITY:-/home/loopsign/.Xauthority}"
-export MOZ_DISABLE_RDD_SANDBOX=1
-export LIBVA_DRIVER_NAME="${LIBVA_DRIVER_NAME:-iHD}"
 
-BASE_DIR="/home/loopsign"
-REPO_DIR="$BASE_DIR/ls-x86xubuntu"
-LOG_FILE="$BASE_DIR/loopsign.log"
-HASH_FILE="$BASE_DIR/Desktop/.hash.txt"
+disable_screen_blanking() {
+    echo "Disabling X11 screen blanking and DPMS..."
 
-FIREFOX_PROFILE="loopsign"
+    xset s off || true
+    xset -dpms || true
+    xset s noblank || true
 
-log() {
-  echo "$(date '+%Y-%m-%d %H:%M:%S') $1" | tee -a "$LOG_FILE"
+    xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/blank-on-ac -s 0 || true
+    xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/dpms-enabled -s false || true
+    xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/presentation-mode -s true || true
 }
 
-log "loopsign.sh started."
+log_display_info() {
+    echo "Display information:"
+    xrandr --query || true
+}
 
-xset s off 2>/dev/null || true
-xset -dpms 2>/dev/null || true
-xset s noblank 2>/dev/null || true
+get_hash() {
+    if [ -f "$HASH_FILE" ]; then
+        HASH="$(tr -d '[:space:]' < "$HASH_FILE")"
+    else
+        HASH="$DEFAULT_HASH"
+    fi
 
-if [[ ! -f "$HASH_FILE" ]]; then
-  log "Hash file missing. Running hashgenerator.sh."
-  "$REPO_DIR/hashgenerator.sh"
-fi
+    if [ -z "$HASH" ]; then
+        HASH="$DEFAULT_HASH"
+    fi
 
-HASH="$(cat "$HASH_FILE" | tr -d '[:space:]')"
+    echo "$HASH"
+}
 
-if [[ -z "$HASH" ]]; then
-  log "Error: hash is empty."
-  exit 1
-fi
+close_existing_firefox() {
+    echo "Closing existing Firefox processes..."
 
-URL="https://play.loopsign.eu/hash/$HASH"
+    pkill -TERM -f firefox || true
+    sleep 2
 
-XRANDR_OUTPUT="$(xrandr 2>/dev/null || true)"
-DISPLAY_OUTPUT="$(echo "$XRANDR_OUTPUT" | awk '/ connected/ {print $1; exit}')"
-ACTIVE_RES="$(echo "$XRANDR_OUTPUT" | awk '/\*/ {print $1; exit}')"
-ACTIVE_HZ="$(echo "$XRANDR_OUTPUT" | awk '/\*/ {for (i=1;i<=NF;i++) if ($i ~ /\*/) print $i}' | sed 's/*//' | head -n1)"
+    if pgrep -f firefox >/dev/null 2>&1; then
+        echo "Firefox still running; forcing close..."
+        pkill -KILL -f firefox || true
+        sleep 1
+    fi
+}
 
-DISPLAY_OUTPUT="${DISPLAY_OUTPUT:-UnknownDisplay}"
-ACTIVE_RES="${ACTIVE_RES:-UnknownResolution}"
-ACTIVE_HZ="${ACTIVE_HZ:-UnknownHz}"
+prepare_firefox_profile() {
+    mkdir -p /home/loopsign/.cache/mozilla/firefox
+    mkdir -p /home/loopsign/.mozilla/firefox
+}
 
-FIREFOX_VERSION="$(firefox --version 2>/dev/null || echo unknown)"
+launch_firefox() {
+    HASH="$(get_hash)"
+    URL="$PLAY_BASE_URL/$HASH"
 
-log "Display output: $DISPLAY_OUTPUT"
-log "Active resolution: $ACTIVE_RES"
-log "Active refresh rate: $ACTIVE_HZ"
-log "Firefox version: $FIREFOX_VERSION"
-log "URL: $URL"
+    echo "Launching Firefox kiosk:"
+    echo "$URL"
 
-pkill firefox >/dev/null 2>&1 || true
-sleep 2
+    exec firefox-esr \
+        --kiosk \
+        --new-window "$URL"
+}
 
-log "Starting Firefox kiosk."
+cd "$REPO_DIR" || true
 
-exec firefox \
-  -P "$FIREFOX_PROFILE" \
-  --kiosk \
-  --new-window "$URL"
+disable_screen_blanking
+log_display_info
+prepare_firefox_profile
+close_existing_firefox
+launch_firefox
