@@ -1,24 +1,31 @@
 #!/bin/bash
 
 exec > /tmp/autorun.log 2>&1
+echo "autorun.sh started at $(date)"
 
-echo "Script started at $(date)"
+REPO_DIR="/home/loopsign/ls-x86intel"
+CONFIG_FILE="/home/loopsign/config"
+BRANCH="prod"
+GITHUB_REPO_URL="https://github.com/Loop24-AS/ls-x86intel.git"
+CURRENT_SCRIPT_PATH="/home/loopsign/autorun.sh"
+NEW_SCRIPT_PATH="$REPO_DIR/autorun.sh"
 
-# Function to check internet connection and time sync
-check_internet_and_time_sync() {
-    synced=false
-    displayed=false
+check_time_sync() {
+    local displayed=false
 
     while true; do
         if timedatectl show -p NTPSynchronized --value | grep -q "yes"; then
-            synced=true
-            echo "System time has been synchronized."
+            echo "System time is synchronized."
             break
         fi
 
-        if ! $synced && ! $displayed; then
-            echo "Displaying initial zenity message about time sync."
-            zenity --info --text="Your LoopSign screen will start once a working internet connection is established and the player's time and date have been synced. Please note that this might take a couple of minutes. If your LoopSign screen won't start, please check your network and/or NTP settings." &
+        if [ "$displayed" = false ]; then
+            echo "Waiting for time sync."
+            zenity --info --text="Your LoopSign screen will start once a working internet connection is established and the player's time and date have been synced.
+
+Please note that this might take a couple of minutes.
+
+If your LoopSign screen won't start, please check your network and/or NTP settings." &
             displayed=true
         fi
 
@@ -26,70 +33,54 @@ check_internet_and_time_sync() {
     done
 }
 
-# Function to update the repository
 update_repository() {
-    local REPO_DIR="/home/loopsign/ls-x86xubuntu"
-    local CONFIG_FILE="/home/loopsign/config"
-    local BRANCH="prod"
-    local GITHUB_REPO_URL="https://github.com/Loop24-AS/ls-x86xubuntu.git"
-
     if [ -f "$CONFIG_FILE" ]; then
-        BRANCH=$(cat "$CONFIG_FILE" | tr -d '[:space:]')
-        if [ -z "$BRANCH" ]; then
-            echo "Config file is empty. Defaulting to 'prod'."
-            BRANCH="prod"
-        fi
+        BRANCH="$(tr -d '[:space:]' < "$CONFIG_FILE")"
+        [ -z "$BRANCH" ] && BRANCH="prod"
     else
-        echo "Config file does not exist. Creating it with the default branch 'prod'."
         echo "prod" > "$CONFIG_FILE"
+        BRANCH="prod"
     fi
 
-    if [ -d "$REPO_DIR/.git" ]; then
-        cd "$REPO_DIR"
-        git remote set-url origin "$GITHUB_REPO_URL"
-        echo "Fetching latest changes..."
-        git fetch origin
-        echo "Resetting local branch to match remote..."
-        git reset --hard origin/$BRANCH
-        echo "Repository updated to branch $BRANCH."
-    else
-        echo "Repository directory does not exist or is not a git repo. Exiting."
+    if [ ! -d "$REPO_DIR/.git" ]; then
+        echo "Repository not found at $REPO_DIR"
         exit 1
     fi
+
+    cd "$REPO_DIR" || exit 1
+
+    git remote set-url origin "$GITHUB_REPO_URL"
+    git fetch origin "$BRANCH"
+    git reset --hard "origin/$BRANCH"
+
+    echo "Repository updated to branch: $BRANCH"
 }
 
-# Function to check for and apply autorun.sh updates
-schedule_master_script_update_and_restart() {
-    NEW_SCRIPT_PATH="/home/loopsign/ls-x86xubuntu/autorun.sh"
-    CURRENT_SCRIPT_PATH="/home/loopsign/autorun.sh"
+self_update_if_needed() {
+    if [ ! -f "$NEW_SCRIPT_PATH" ]; then
+        echo "No autorun.sh found in repo."
+        return
+    fi
 
-    if [ -f "$NEW_SCRIPT_PATH" ]; then
-        NEW_HASH=$(sha256sum "$NEW_SCRIPT_PATH" | awk '{print $1}')
-        CURRENT_HASH=$(sha256sum "$CURRENT_SCRIPT_PATH" | awk '{print $1}')
+    if ! cmp -s "$NEW_SCRIPT_PATH" "$CURRENT_SCRIPT_PATH"; then
+        echo "New autorun.sh detected. Replacing current script and restarting."
 
-        if [ "$NEW_HASH" != "$CURRENT_HASH" ]; then
-            echo "New version of autorun.sh detected. Scheduling update and restart..."
-
-            cat <<EOF > /home/loopsign/update_and_restart.sh
+        cat > /home/loopsign/update_autorun_and_restart.sh <<EOF
 #!/bin/bash
 sleep 2
-mv "$NEW_SCRIPT_PATH" "$CURRENT_SCRIPT_PATH"
+cp "$NEW_SCRIPT_PATH" "$CURRENT_SCRIPT_PATH"
 chmod +x "$CURRENT_SCRIPT_PATH"
-/bin/bash "$CURRENT_SCRIPT_PATH"
-rm -- "\$0"
+exec "$CURRENT_SCRIPT_PATH"
 EOF
-            chmod +x /home/loopsign/update_and_restart.sh
-            nohup /home/loopsign/update_and_restart.sh > /dev/null 2>&1 &
-            exit 0
-        else
-            echo "autorun.sh is already up to date."
-        fi
-    else
-        echo "No new autorun.sh found in repository."
+
+        chmod +x /home/loopsign/update_autorun_and_restart.sh
+        nohup /home/loopsign/update_autorun_and_restart.sh >/dev/null 2>&1 &
+        exit 0
     fi
+
+    echo "autorun.sh is already up to date."
 }
 
-# Countdown dialog while secondary scripts initialise
 start_countdown() {
     (
         for i in {10..1}; do
@@ -99,44 +90,32 @@ start_countdown() {
         done
         echo "100"
     ) | zenity --progress \
-        --title="Countdown" \
+        --title="LoopSign" \
         --text="Please wait..." \
         --percentage=0 \
         --auto-close \
         --no-cancel &
 }
 
-# --- Main sequence ---
-
-# Hide cursor using unclutter (X11 approach, replaces udevmon/hideaway)
+# Hide mouse cursor on X11
 unclutter -idle 5 -root &
 
-# Wait for NTP sync
-check_internet_and_time_sync
-
-# Pull latest repo changes
+check_time_sync
 update_repository
+self_update_if_needed
 
-# Apply autorun.sh update if needed
-schedule_master_script_update_and_restart
+pkill zenity 2>/dev/null
 
-# Dismiss any leftover zenity dialogs
-pkill zenity
+chmod +x "$REPO_DIR/define-sudo-crontab.sh"
+sudo "$REPO_DIR/define-sudo-crontab.sh"
 
-# Set cron jobs
-chmod +x /home/loopsign/ls-x86xubuntu/define-sudo-crontab.sh
-sudo /home/loopsign/ls-x86xubuntu/define-sudo-crontab.sh
+chmod +x "$REPO_DIR/hashgenerator.sh"
+"$REPO_DIR/hashgenerator.sh"
 
-# Generate device hash
-chmod +x /home/loopsign/ls-x86xubuntu/hashgenerator.sh
-/home/loopsign/ls-x86xubuntu/hashgenerator.sh
-
-# Show countdown
 start_countdown
 
-# Launch secondary scripts
-cd /home/loopsign/ls-x86xubuntu
+cd "$REPO_DIR" || exit 1
 chmod +x autorefresh.sh loopsign.sh
 
-nohup ./autorefresh.sh &
-./loopsign.sh &
+nohup ./autorefresh.sh >/tmp/autorefresh-launch.log 2>&1 &
+exec ./loopsign.sh
