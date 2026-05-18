@@ -98,7 +98,7 @@ start_countdown() {
 }
 
 # Hide mouse cursor on X11
-unclutter -idle 5 -root &
+unclutter -idle 1 -root &
 
 check_time_sync
 update_repository
