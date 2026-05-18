@@ -104,18 +104,18 @@ check_time_sync
 update_repository
 self_update_if_needed
 
+# Make all scripts in repo directory executable
+find "$REPO_DIR" -type f -name "*.sh" -exec chmod +x {} \;
+
 pkill zenity 2>/dev/null
 
-chmod +x "$REPO_DIR/define-sudo-crontab.sh"
 sudo "$REPO_DIR/define-sudo-crontab.sh"
 
-chmod +x "$REPO_DIR/hashgenerator.sh"
 "$REPO_DIR/hashgenerator.sh"
 
 start_countdown
 
 cd "$REPO_DIR" || exit 1
-chmod +x autorefresh.sh loopsign.sh
 
 nohup ./autorefresh.sh >/tmp/autorefresh-launch.log 2>&1 &
 exec ./loopsign.sh
