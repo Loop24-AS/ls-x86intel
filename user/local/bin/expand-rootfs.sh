@@ -22,7 +22,7 @@ resize2fs "$ROOT_PART"
 
 touch "$MARKER"
 
-systemctl disable expand-rootfs.service || true
+systemctl disable loopsign-expand-rootfs.service || true
 
 echo "Root filesystem expansion complete."
 
