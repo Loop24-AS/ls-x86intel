@@ -111,6 +111,8 @@ pkill zenity 2>/dev/null
 
 sudo "$REPO_DIR/define-sudo-crontab.sh"
 
+sudo "$REPO_DIR/setup-firefox-config.sh"
+
 "$REPO_DIR/hashgenerator.sh"
 
 start_countdown
