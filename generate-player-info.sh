@@ -75,7 +75,7 @@ write_value "display_name" "${DISPLAY_NAME:-unknown}"
 write_value "display_resolution" "${DISPLAY_RESOLUTION:-unknown}"
 write_value "display_refresh" "${DISPLAY_REFRESH:-unknown}"
 
-USER_AGENT="Mozilla/5.0 (X11; Linux x86_64; rv:${FIREFOX_VERSION:-unknown}) Gecko/20100101 Firefox/${FIREFOX_VERSION:-unknown} LoopSignPlayer/1.0 Platform=${CPU_MODEL:-unknown}; RAM=${RAM_TOTAL:-unknown}; Storage=${STORAGE_TOTAL:-unknown}; Display=${DISPLAY_NAME:-unknown}; Resolution=${DISPLAY_RESOLUTION:-unknown}; Refresh=${DISPLAY_REFRESH:-unknown}Hz"
+USER_AGENT="Mozilla/5.0 (X11; Linux x86_64; rv:${FIREFOX_VERSION:-unknown}) Gecko/20100101 Firefox/${FIREFOX_VERSION:-unknown} LoopSignPlayer/2026.5 Platform=${CPU_MODEL:-unknown}; RAM=${RAM_TOTAL:-unknown}; Storage=${STORAGE_TOTAL:-unknown}; Display=${DISPLAY_NAME:-unknown}; Resolution=${DISPLAY_RESOLUTION:-unknown}; Refresh=${DISPLAY_REFRESH:-unknown}Hz"
 
 write_value "user_agent" "$USER_AGENT"
 
