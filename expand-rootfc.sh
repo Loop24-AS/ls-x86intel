@@ -1,13 +1,29 @@
 #!/bin/bash
+set -e
 
-ROOT_PART=$(findmnt / -o SOURCE -n)
-DISK=$(lsblk -no pkname "$ROOT_PART")
-PARTNUM=$(echo "$ROOT_PART" | grep -o '[0-9]*$')
+MARKER="/var/lib/loopsign/rootfs-expanded"
 
-growpart /dev/$DISK $PARTNUM
-resize2fs $ROOT_PART
+if [ -f "$MARKER" ]; then
+    exit 0
+fi
 
-systemctl disable expand-rootfs.service
-rm -f /etc/systemd/system/expand-rootfs.service
+mkdir -p /var/lib/loopsign
+
+ROOT_PART="$(findmnt -n -o SOURCE /)"
+DISK="/dev/$(lsblk -no PKNAME "$ROOT_PART")"
+PARTNUM="$(lsblk -no PARTN "$ROOT_PART")"
+
+echo "Root partition: $ROOT_PART"
+echo "Disk: $DISK"
+echo "Partition number: $PARTNUM"
+
+growpart "$DISK" "$PARTNUM"
+resize2fs "$ROOT_PART"
+
+touch "$MARKER"
+
+systemctl disable expand-rootfs.service || true
+
+echo "Root filesystem expansion complete."
 
 reboot
