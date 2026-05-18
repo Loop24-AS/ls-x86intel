@@ -35,31 +35,18 @@ ScriptFile=$THEME_DIR/$THEME_NAME.script
 EOF
 
 cat > "$THEME_DIR/$THEME_NAME.script" <<'EOF'
-wallpaper_image = Image("splash.png");
+splash_image = Image("splash.png");
+
 screen_width = Window.GetWidth();
 screen_height = Window.GetHeight();
 
-image_width = wallpaper_image.GetWidth();
-image_height = wallpaper_image.GetHeight();
+image_width = splash_image.GetWidth();
+image_height = splash_image.GetHeight();
 
-scale_x = screen_width / image_width;
-scale_y = screen_height / image_height;
-
-if (scale_x > scale_y) {
-    scale = scale_x;
-} else {
-    scale = scale_y;
-}
-
-resized_image = wallpaper_image.Scale(image_width * scale, image_height * scale);
-
-resized_width = resized_image.GetWidth();
-resized_height = resized_image.GetHeight();
-
-wallpaper_sprite = Sprite(resized_image);
-wallpaper_sprite.SetX((screen_width - resized_width) / 2);
-wallpaper_sprite.SetY((screen_height - resized_height) / 2);
-wallpaper_sprite.SetZ(-100);
+splash_sprite = Sprite(splash_image);
+splash_sprite.SetX((screen_width - image_width) / 2);
+splash_sprite.SetY((screen_height - image_height) / 2);
+splash_sprite.SetZ(100);
 EOF
 
 plymouth-set-default-theme "$THEME_NAME"
