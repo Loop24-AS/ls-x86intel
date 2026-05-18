@@ -26,4 +26,6 @@ systemctl disable loopsign-expand-rootfs.service || true
 
 echo "Root filesystem expansion complete."
 
+sleep 1
+
 reboot
