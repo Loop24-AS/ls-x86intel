@@ -118,4 +118,5 @@ start_countdown
 cd "$REPO_DIR" || exit 1
 
 nohup ./autorefresh.sh >/tmp/autorefresh-launch.log 2>&1 &
+nohup ./cache-refresh.sh &
 exec ./loopsign.sh
