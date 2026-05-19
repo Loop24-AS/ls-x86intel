@@ -164,7 +164,8 @@ sudo apt install \
     unclutter \
     plymouth \
     plymouth-themes \
-    xxd
+    xxd \
+    cloud-guest-utils
 ```
 
 ---
