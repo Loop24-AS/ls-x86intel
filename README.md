@@ -165,7 +165,8 @@ sudo apt install \
     plymouth \
     plymouth-themes \
     xxd \
-    cloud-guest-utils
+    cloud-guest-utils \
+    unattended-upgrades
 ```
 
 ---
