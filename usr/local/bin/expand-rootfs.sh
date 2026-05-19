@@ -20,7 +20,7 @@ echo "Partition number: $PARTNUM"
 growpart "$DISK" "$PARTNUM"
 resize2fs "$ROOT_PART"
 
-touch "$MARKER"
+date -Iseconds > "$MARKER"
 
 # systemctl disable loopsign-expand-rootfs.service || true
 
