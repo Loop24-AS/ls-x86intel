@@ -163,7 +163,8 @@ sudo apt install \
     xdotool \
     unclutter \
     plymouth \
-    plymouth-themes
+    plymouth-themes \
+    xxd
 ```
 
 ---
