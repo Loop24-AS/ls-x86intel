@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Disable Screen Blanking
+Exec=sh -c "until xset q >/dev/null 2>&1; do sleep 1; done; xset s off; xset -dpms; xset s noblank"
+StartupNotify=false
+Terminal=false
