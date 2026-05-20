@@ -166,7 +166,8 @@ sudo apt install \
     plymouth-themes \
     xxd \
     cloud-guest-utils \
-    unattended-upgrades
+    unattended-upgrades \
+    systemd-timesyncd
 ```
 
 ---
