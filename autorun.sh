@@ -109,6 +109,8 @@ find "$REPO_DIR" -type f -name "*.sh" -exec chmod +x {} \;
 
 pkill zenity 2>/dev/null
 
+sudo "$REPO_DIR/unattended-upgrades-time.sh"
+
 sudo "$REPO_DIR/define-sudo-crontab.sh"
 
 sudo "$REPO_DIR/generate-player-info.sh"
