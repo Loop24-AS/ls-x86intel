@@ -8,7 +8,7 @@ TMP_FILE="$(mktemp)"
 cat > "$TMP_FILE" <<'EOF'
 [Timer]
 OnCalendar=
-OnCalendar=Sun *-*-* 05:00
+OnCalendar=Sun *-*-* 05:30
 RandomizedDelaySec=0
 Persistent=true
 EOF
