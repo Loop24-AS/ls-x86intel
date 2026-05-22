@@ -1,5 +1,5 @@
 #!/bin/bash
-TIMEOUT=3600  # 10 minutes max wait
+TIMEOUT=3600  # 1 hour max wait
 ELAPSED=0
 
 while systemctl is-active --quiet apt-daily-upgrade.service; do
