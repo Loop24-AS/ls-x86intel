@@ -1,3 +1,3 @@
 0 6 * * * /home/loopsign/ls-x86intel/safe-reboot.sh
 
-# triggers script to safely wait to reboot until unattended-upgrades is finished (max timeout = 6000 secs)
+# triggers script to safely wait to reboot until unattended-upgrades is finished
