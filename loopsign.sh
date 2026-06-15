@@ -3,48 +3,6 @@
 exec > /tmp/loopsign.log 2>&1
 echo "loopsign.sh started at $(date)"
 
-HASH_FILE="/home/loopsign/Desktop/.hash.txt"
-PLAY_BASE_URL="https://play.loopsign.eu/hash"
-
-export DISPLAY="${DISPLAY:-:0}"
-export XAUTHORITY="${XAUTHORITY:-/home/loopsign/.Xauthority}"
-
-get_hash() {
-    if [ -f "$HASH_FILE" ]; then
-        HASH="$(tr -d '[:space:]' < "$HASH_FILE")"
-    else
-        HASH="unknown"
-    fi
-
-    [ -z "$HASH" ] && HASH="unknown"
-    echo "$HASH"
-}
-
-close_existing_firefox() {
-    pkill -TERM -f firefox || true
-    sleep 2
-
-    if pgrep -f firefox >/dev/null 2>&1; then
-        pkill -KILL -f firefox || true
-        sleep 1
-    fi
-}
-
-HASH="$(get_hash)"
-URL="$PLAY_BASE_URL/$HASH"
-
-echo "Launching Firefox kiosk:"
-echo "$URL"
-
-close_existing_firefox
-
-exec firefox-esr \
-    --kiosk \
-    --new-window "$URL"#!/bin/bash
-
-exec > /tmp/loopsign.log 2>&1
-echo "loopsign.sh started at $(date)"
-
 REPO_DIR="/home/loopsign/ls-x86intel"
 HASH_FILE="/home/loopsign/Desktop/.hash.txt"
 DEFAULT_HASH="unknown"
