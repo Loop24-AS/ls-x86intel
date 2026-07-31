@@ -100,6 +100,9 @@ start_countdown() {
 # Hide mouse cursor on X11
 unclutter -idle 1 -root &
 
+# Don't pop up display settings on HDMI hotplug
+xfconf-query -c displays -p /Notify -s 0
+
 check_time_sync
 update_repository
 self_update_if_needed
